@@ -39,7 +39,7 @@ RUN mkdir -p /opt/stuff && \
 
 WORKDIR /opt
 
-RUN git clone https://github.com/Jayy001/codexctl.git /opt/codexctl
+RUN git clone -b 1695743393 https://github.com/Jayy001/codexctl.git /opt/codexctl
 
 # Download the firmware using codexctl
 ARG fw_version=3.5.2.1807
