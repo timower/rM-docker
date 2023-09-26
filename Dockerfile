@@ -24,6 +24,10 @@ RUN sed -i 's/# CONFIG_INPUT_UINPUT is not set/CONFIG_INPUT_UINPUT=y/' imx7/.con
 ARG parallel=8
 RUN make O=imx7 ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- -j$parallel
 
+# Copy the output files
+RUN cp imx7/arch/arm/boot/zImage /opt && \
+    cp imx7/arch/arm/boot/dts/imx7d-rm.dtb /opt
+
 # Step 2: rootfs
 FROM python:3 as rootfs
 
@@ -49,6 +53,7 @@ RUN python /opt/stuff/extractor/extractor.py /opt/fw.signed /opt/rootfs.ext4
 # Add the template
 RUN apt-get update && \
     apt-get install -y qemu-utils fdisk dosfstools
+RUN apt-get install -y libguestfs-tools
 
 ADD make_rootfs.sh /opt
 RUN ./make_rootfs.sh /opt/rootfs.ext4
@@ -59,12 +64,15 @@ FROM debian:bookworm AS qemu
 RUN apt-get update && \
     apt-get install -y qemu-system-arm
 
-RUN mkdir -p /opt
+RUN mkdir -p /opt/root
 
-# TODO: don't hardcode 5.8.18
-COPY --from=linux-build /opt/linux/linux-5.8.18/imx7/arch/arm/boot/zImage /opt
-COPY --from=linux-build /opt/linux/linux-5.8.18/imx7/arch/arm/boot/dts/imx7d-rm.dtb /opt
-COPY --from=rootfs /opt/rootfs.qcow2 /opt
+COPY --from=linux-build /opt/zImage /opt
+COPY --from=linux-build /opt/imx7d-rm.dtb /opt
+COPY --from=rootfs /opt/rootfs.qcow2 /opt/root
+
+VOLUME /opt/root
+EXPOSE 22/tcp
+EXPOSE 8888/tcp
 
 CMD qemu-system-arm \
     -machine mcimx7d-sabre \
@@ -73,7 +81,7 @@ CMD qemu-system-arm \
     -m 2048 \
     -kernel /opt/zImage \
     -dtb /opt/imx7d-rm.dtb \
-    -drive if=sd,file=/opt/rootfs.qcow2,format=qcow2,index=2 \
+    -drive if=sd,file=/opt/root/rootfs.qcow2,format=qcow2,index=2 \
     -append "console=ttymxc0 rootfstype=ext4 root=/dev/mmcblk1p2 rw rootwait init=/sbin/init" \
-    -nic user,hostfwd=tcp::60022-:22,hostfwd=tcp::60088-:8888 \
+    -nic user,hostfwd=tcp::22-:22,hostfwd=tcp::8888-:8888 \
     -nographic

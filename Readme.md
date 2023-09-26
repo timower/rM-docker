@@ -9,23 +9,21 @@ Usage
 
 ```
 > docker build -t rm-docker .
-> docker run -it rm-docker
+> docker run --rm -v rm-data:/opt/root -p 2222:22 -it rm-docker
 # Lots of boot messages...
 Codex Linux 3.1.266-2 reMarkable ttymxc0
 
 reMarkable login:
 
 # Now login using the root account, no password
+# Or ssh:
+ssh root@localhost -p 2222
 ```
 
 TODO
 ----
 
- * Optimize rootfs building, currently lots of diskspace (8G) is used
-   * libguestfs and guestfish might help here
- * Fix `/etc/fstab` and `dhcpcd.service`, should also be possible using `guestfish`
- * Volume mount the rootfs image, so changes can be persisted
- * Forward some ports, to enable ssh access
+ * Add rm2fb from [rm2-stuff](https://github.com/timower/rM2-stuff/tree/dev)
 
 References
 ----------
