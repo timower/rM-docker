@@ -26,3 +26,8 @@ TODO
  * Fix `/etc/fstab` and `dhcpcd.service`, should also be possible using `guestfish`
  * Volume mount the rootfs image, so changes can be persisted
  * Forward some ports, to enable ssh access
+
+References
+----------
+
+Largely based on https://gist.github.com/matteodelabre/92599920b46e5fac9daf58670d367950
