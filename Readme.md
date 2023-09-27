@@ -20,10 +20,38 @@ reMarkable login:
 ssh root@localhost -p 2222
 ```
 
+Targets
+-------
+
+### qemu-base
+
+Use `docker build --target qemu-base` to build a basic qemu image.
+
+### qemu-toltec
+
+The `qemu-toltec` target will install [toltec](https://toltec-dev.org/) in
+the image.
+
+### qemu-rm2fb
+
+The `qemu-rm2fb` target (which is the default) will include a framebuffer
+emulator from [rm2-stuff](https://github.com/timower/rM2-stuff/tree/dev).
+
+X11 forwarding can be used to view the framebuffer:
+```
+docker run --rm \
+  -v /tmp/.X11-unix:/tmp/.X11-unix \
+  -v $HOME/.Xauthority:/root/.Xauthority \
+  --env DISPLAY \
+  -h (hostnamectl hostname) \
+  -p 2222:22 \
+  -it rm-docker:plain
+```
+
 TODO
 ----
 
- * Add rm2fb from [rm2-stuff](https://github.com/timower/rM2-stuff/tree/dev)
+ - [ ] Add github actions
 
 References
 ----------
