@@ -1,5 +1,6 @@
 # Step 1: Build Linux for the emulator
-FROM ghcr.io/toltec-dev/base:v3.1 as linux-build
+ARG toltec_image=ghcr.io/toltec-dev/base:v3.1
+FROM $toltec_image as linux-build
 
 RUN apt-get update
 RUN apt-get install -y bison bc lzop libssl-dev flex
@@ -18,14 +19,15 @@ RUN cp arch/arm/boot/dts/imx7d-sbc-imx7.dts arch/arm/boot/dts/imx7d-rm.dts && \
 
 RUN make O=imx7 ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- imx_v6_v7_defconfig
 
-# Enable uinput
-RUN sed -i 's/# CONFIG_INPUT_UINPUT is not set/CONFIG_INPUT_UINPUT=y/' imx7/.config
+# Enable uinput and disable all modules
+RUN sed -i 's/# CONFIG_INPUT_UINPUT is not set/CONFIG_INPUT_UINPUT=y/' imx7/.config && \
+    sed -i 's/=m/=n/' imx7/.config
 
-RUN make O=imx7 ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- -j $(nproc)
-
-# Copy the output files
-RUN cp imx7/arch/arm/boot/zImage /opt && \
-    cp imx7/arch/arm/boot/dts/imx7d-rm.dtb /opt
+# Build, Copy the output files and clean
+RUN make O=imx7 ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- -j $(nproc) && \
+    cp imx7/arch/arm/boot/zImage /opt && \
+    cp imx7/arch/arm/boot/dts/imx7d-rm.dtb /opt && \
+    rm -rf imx7
 
 # Step 2: rootfs
 FROM python:3 as rootfs
@@ -74,9 +76,10 @@ ENV PATH=/opt/bin:$PATH
 
 # First boot, disable xochitl, sync time, and save state
 RUN run_vm.sh -serial null -daemonize && \
-    ssh -o StrictHostKeyChecking=no root@localhost 'systemctl stop rm-sync && systemctl mask rm-sync' && \
-    ssh -o StrictHostKeyChecking=no root@localhost 'systemctl mask xochitl' && \
-    ssh -o StrictHostKeyChecking=no root@localhost 'while ! timedatectl status | grep "synchronized: yes"; do sleep 1; done' && \
+    wait_ssh.sh && \
+    ssh root@localhost 'systemctl stop rm-sync && systemctl mask rm-sync' && \
+    ssh root@localhost 'systemctl mask xochitl' && \
+    ssh root@localhost 'while ! timedatectl status | grep "synchronized: yes"; do sleep 1; done' && \
     save_vm.sh
 
 # Mount to presist rootfs
@@ -94,11 +97,12 @@ CMD run_vm.sh -nographic
 FROM qemu-base AS qemu-toltec
 
 RUN run_vm.sh -serial null -daemonize && \
-    ssh -o StrictHostKeyChecking=no root@localhost 'wget http://toltec-dev.org/bootstrap && bash bootstrap' && \
+    wait_ssh.sh && \
+    ssh root@localhost 'wget http://toltec-dev.org/bootstrap && bash bootstrap' && \
     save_vm.sh
 
 # Step 4: Build rm2fb-client and forwarder
-FROM ghcr.io/toltec-dev/base:v3.1 as rm2fb-client
+FROM $toltec_image as rm2fb-client
 
 RUN apt-get update && \
     apt-get install -y git
@@ -132,7 +136,8 @@ COPY --from=rm2fb-client /opt/rm2-stuff/build/release-toltec/tools/rm2fb-forward
 COPY --from=rm2fb-host /opt/rm2-stuff/build/host/tools/rm2fb-emu/rm2fb-emu /opt/bin
 
 RUN run_vm.sh -serial null -daemonize && \
-    scp -o StrictHostKeyChecking=no /opt/rm2fb/* root@localhost: && \
+    wait_ssh.sh && \
+    scp /opt/rm2fb/* root@localhost: && \
     save_vm.sh
 
 RUN apt-get update && \

@@ -9,7 +9,7 @@ then
   LOAD_STATE="-loadvm main"
 fi
 
-echo "Staring..."
+echo "Staring QEMU..."
 qemu-system-arm \
     -machine mcimx7d-sabre \
     -cpu cortex-a9 \
