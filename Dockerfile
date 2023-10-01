@@ -2,8 +2,8 @@
 ARG toltec_image=ghcr.io/toltec-dev/base:v3.1
 FROM $toltec_image as linux-build
 
-RUN apt-get update
-RUN apt-get install -y bison bc lzop libssl-dev flex
+RUN apt-get update && \
+    apt-get install -y bison bc lzop libssl-dev flex
 
 ENV linux_release=5.8.18
 
@@ -17,10 +17,9 @@ RUN cp arch/arm/boot/dts/imx7d-sbc-imx7.dts arch/arm/boot/dts/imx7d-rm.dts && \
     sed -i 's/CompuLab SBC-iMX7/reMarkable 2.0/' arch/arm/boot/dts/imx7d-rm.dts && \
     sed -i 's/imx7d-sbc-imx7.dtb/imx7d-sbc-imx7.dtb imx7d-rm.dtb/' arch/arm/boot/dts/Makefile
 
-RUN make O=imx7 ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- imx_v6_v7_defconfig
-
-# Enable uinput and disable all modules
-RUN sed -i 's/# CONFIG_INPUT_UINPUT is not set/CONFIG_INPUT_UINPUT=y/' imx7/.config && \
+# Default imx7 config, enable uinput and disable all modules
+RUN make O=imx7 ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- imx_v6_v7_defconfig && \
+    sed -i 's/# CONFIG_INPUT_UINPUT is not set/CONFIG_INPUT_UINPUT=y/' imx7/.config && \
     sed -i 's/=m/=n/' imx7/.config
 
 # Build, Copy the output files and clean
@@ -32,27 +31,26 @@ RUN make O=imx7 ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- -j $(nproc) && \
 # Step 2: rootfs
 FROM python:3 as rootfs
 
-ARG fw_version=3.5.2.1807
 WORKDIR /opt
 
-# Download the firmware using codexctl
-RUN git clone -b 1695743393 https://github.com/Jayy001/codexctl.git /opt/codexctl && \
+# Install dependencies
+RUN apt-get update && \
+    apt-get install -y qemu-utils libguestfs-tools && \
+    git clone -b 1695743393 https://github.com/Jayy001/codexctl.git /opt/codexctl && \
     pip3 install -r /opt/codexctl/requirements.txt && \
-    python /opt/codexctl/codexctl.py download $fw_version && \
-    mv updates/*.signed /opt/fw.signed
+    pip3 install protobuf && \
+    git clone https://github.com/ddvk/stuff.git /opt/stuff
 
-# Extract the ext4 image
 ENV PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python
-RUN pip3 install protobuf && \
-    mkdir -p /opt/stuff && \
-    git clone https://github.com/ddvk/stuff.git /opt/stuff && \
+
+ARG fw_version=3.5.2.1807
+RUN python /opt/codexctl/codexctl.py download $fw_version && \
+    mv updates/*.signed /opt/fw.signed && \
     python /opt/stuff/extractor/extractor.py /opt/fw.signed /opt/rootfs.ext4
 
 # Make the rootfs image
 ADD make_rootfs.sh /opt
-RUN apt-get update && \
-    apt-get install -y qemu-utils libguestfs-tools && \
-    ./make_rootfs.sh /opt/rootfs.ext4
+RUN ./make_rootfs.sh /opt/rootfs.ext4
 
 # Step3: Qemu!
 FROM debian:bookworm AS qemu-base
