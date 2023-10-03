@@ -29,24 +29,31 @@ RUN make O=imx7 ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- -j $(nproc) && \
     rm -rf imx7
 
 # Step 2: rootfs
-FROM python:3 as rootfs
+FROM linuxkit/guestfs:f85d370f7a3b0749063213c2dd451020e3a631ab AS rootfs
 
 WORKDIR /opt
+ARG TARGETARCH
 
 # Install dependencies
+ADD https://github.com/jqlang/jq/releases/download/jq-1.7/jq-linux-${TARGETARCH} \
+    /usr/local/bin/jq
+
 RUN apt-get update && \
-    apt-get install -y qemu-utils libguestfs-tools && \
-    git clone -b 1695743393 https://github.com/Jayy001/codexctl.git /opt/codexctl && \
-    pip3 install -r /opt/codexctl/requirements.txt && \
-    pip3 install protobuf && \
+    apt-get install -y --no-install-recommends \
+      git \
+      python3 \
+      python3-protobuf && \
+    chmod +x /usr/local/bin/jq && \
     git clone https://github.com/ddvk/stuff.git /opt/stuff
 
 ENV PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python
 
+ADD get_update.sh /opt
+ADD updates.json /opt
+
 ARG fw_version=3.5.2.1807
-RUN python /opt/codexctl/codexctl.py download $fw_version && \
-    mv updates/*.signed /opt/fw.signed && \
-    python /opt/stuff/extractor/extractor.py /opt/fw.signed /opt/rootfs.ext4
+RUN /opt/get_update.sh download $fw_version && \
+    python3 /opt/stuff/extractor/extractor.py /opt/fw.signed /opt/rootfs.ext4
 
 # Make the rootfs image
 ADD make_rootfs.sh /opt
