@@ -43,7 +43,7 @@ docker run --rm \
   -v /tmp/.X11-unix:/tmp/.X11-unix \
   -v $HOME/.Xauthority:/root/.Xauthority \
   --env DISPLAY \
-  -h (hostnamectl hostname) \
+  -h $(hostnamectl hostname) \
   -p 2222:22 \
   -it rm-docker:plain
 ```
