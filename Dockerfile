@@ -1,11 +1,16 @@
-# Step 1: Build Linux for the emulator
+# Global config
 ARG toltec_image=ghcr.io/toltec-dev/base:v3.1
+ARG rm2_stuff_commit=2f6c56ea6e3495ced46449a59e6af6848c73562
+ARG fw_version=3.5.2.1807
+ARG linux_release=5.8.18
+
+# Step 1: Build Linux for the emulator
 FROM $toltec_image as linux-build
 
 RUN apt-get update && \
     apt-get install -y bison bc lzop libssl-dev flex
 
-ENV linux_release=5.8.18
+ARG linux_release
 
 RUN curl -o linux.tar.xz https://cdn.kernel.org/pub/linux/kernel/v5.x/linux-$linux_release.tar.xz && \
     mkdir -p /opt/linux && cd /opt/linux && tar -xf /linux.tar.xz && rm /linux.tar.xz
@@ -51,7 +56,7 @@ ENV PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python
 ADD get_update.sh /opt
 ADD updates.json /opt
 
-ARG fw_version=3.5.2.1807
+ARG fw_version
 RUN /opt/get_update.sh download $fw_version && \
     python3 /opt/stuff/extractor/extractor.py /opt/fw.signed /opt/rootfs.ext4
 
@@ -107,8 +112,10 @@ FROM $toltec_image as rm2fb-client
 RUN apt-get update && \
     apt-get install -y git
 
+ARG rm2_stuff_commit
 RUN mkdir -p /opt && \
-    git clone https://github.com/timower/rM2-stuff.git -b dev /opt/rm2-stuff
+    git clone https://github.com/timower/rM2-stuff.git /opt/rm2-stuff && \
+    cd /opt/rm2-stuff && git reset --hard $rm2_stuff_commit
 WORKDIR /opt/rm2-stuff
 
 RUN cmake --preset release-toltec && \
@@ -120,8 +127,10 @@ FROM debian:bookworm AS rm2fb-host
 RUN apt-get update && \
     apt-get install -y git clang cmake ninja-build libsdl2-dev libevdev-dev
 
+ARG rm2_stuff_commit
 RUN mkdir -p /opt && \
-    git clone https://github.com/timower/rM2-stuff.git -b dev /opt/rm2-stuff
+    git clone https://github.com/timower/rM2-stuff.git /opt/rm2-stuff && \
+    cd /opt/rm2-stuff && git reset --hard $rm2_stuff_commit
 WORKDIR /opt/rm2-stuff
 
 RUN cmake --preset dev-host && cmake --build build/host --target rm2fb-emu

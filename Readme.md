@@ -48,11 +48,6 @@ docker run --rm \
   -it rm-docker:plain
 ```
 
-TODO
-----
-
- - [ ] Add github actions
-
 References
 ----------
 
