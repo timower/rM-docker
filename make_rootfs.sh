@@ -27,10 +27,10 @@ download /etc/fstab /tmp/fstab
 upload /tmp/fstab /etc/fstab
 
 download /lib/systemd/system/dhcpcd.service /tmp/dhcpcd.service
-! sed -i 's/wlan\\*/eth\\*/' /tmp/dhcpcd.service
+! sed -i 's/wlan/eth/' /tmp/dhcpcd.service
 upload /tmp/dhcpcd.service /lib/systemd/system/dhcpcd.service
 
-mount /dev/sda4 /home/root
+mount /dev/sda4 /home
 cp-a /etc/skel /home/root
 
 GFS

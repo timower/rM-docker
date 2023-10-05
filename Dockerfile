@@ -82,7 +82,7 @@ ENV PATH=/opt/bin:$PATH
 # First boot, disable xochitl, sync time, and save state
 RUN run_vm.sh -serial null -daemonize && \
     wait_ssh.sh && \
-    ssh root@localhost 'systemctl stop rm-sync && systemctl mask rm-sync' && \
+    ssh root@localhost '(systemctl stop rm-sync && systemctl mask rm-sync) || (systemctl stop sync && systemctl mask sync)' && \
     ssh root@localhost 'systemctl mask xochitl' && \
     ssh root@localhost 'while ! timedatectl status | grep "synchronized: yes"; do sleep 1; done' && \
     save_vm.sh
