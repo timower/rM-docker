@@ -2,6 +2,7 @@
 
 set -eu
 
+opkg update
 echo "Installing basic build tools"
 opkg install gcc binutils busybox gawk ldd make sed tar
 echo "Installing recommended build tools"
