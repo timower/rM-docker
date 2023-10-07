@@ -153,3 +153,12 @@ RUN apt-get update && \
     apt-get install -y libevdev2 libsdl2-2.0-0
 
 CMD run_xochitl.sh
+
+FROM qemu-rm2fb AS qemu-dev
+
+ADD install_devtools.sh /opt
+
+RUN run_vm.sh -serial null -daemonize && \
+    wait_ssh.sh && \
+    cat /opt/install_devtools.sh | ssh root@localhost && \
+    save_vm.sh
