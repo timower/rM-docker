@@ -7,8 +7,9 @@ for the remarkable 2 OS.
 Usage
 -----
 
-```
-> docker build -t rm-docker .
+```shell
+> docker buildx build -t rm-docker https://github.com/timower/rM-docker.git
+> xhost + local: # Only if you're on Wayland WM instead of X11.
 > docker run --rm -v rm-data:/opt/root -p 2222:22 -it rm-docker
 # Lots of boot messages...
 Codex Linux 3.1.266-2 reMarkable ttymxc0
@@ -38,14 +39,14 @@ The `qemu-rm2fb` target (which is the default) will include a framebuffer
 emulator from [rm2-stuff](https://github.com/timower/rM2-stuff/tree/dev).
 
 X11 forwarding can be used to view the framebuffer:
-```
-docker run --rm \
-  -v /tmp/.X11-unix:/tmp/.X11-unix \
-  -v $HOME/.Xauthority:/root/.Xauthority \
+```shell
+docker run --rm -it \
+  --volume /tmp/.X11-unix:/tmp/.X11-unix \
+  --volume $HOME/.Xauthority:/root/.Xauthority \
   --env DISPLAY \
-  -h $(hostnamectl hostname) \
-  -p 2222:22 \
-  -it rm-docker:plain
+  --hostname "$(hostnamectl hostname)" \
+  --publish 2222:22 \
+  rm-docker:plain
 ```
 
 References
