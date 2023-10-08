@@ -48,6 +48,23 @@ docker run --rm \
   -it rm-docker:plain
 ```
 
+### qemu-user
+
+This image has the reMarkable root filesystem as a docker image, which can
+be used with qemu-user mode to emulate the reMarkable. This won't work
+with rm2fb as shared memory doesn't work, but is a lot faster than full system
+emulation.
+
+Usage:
+```shell
+# Install qemu user mode binfmt runners
+> docker run --privileged --rm tonistiigi/binfmt --install arm
+> docker build --tag rm-docker:user --target qemu-user --platform linux/arm/v7 .
+
+# Should launch the busybox shell
+> docker run --rm -it rm-docker:user
+```
+
 References
 ----------
 

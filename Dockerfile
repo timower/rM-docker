@@ -34,13 +34,14 @@ RUN make O=imx7 ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- -j $(nproc) && \
     rm -rf imx7
 
 # Step 2: rootfs
-FROM linuxkit/guestfs:f85d370f7a3b0749063213c2dd451020e3a631ab AS rootfs
+FROM --platform=$BUILDPLATFORM \
+     linuxkit/guestfs:f85d370f7a3b0749063213c2dd451020e3a631ab AS rootfs
 
 WORKDIR /opt
-ARG TARGETARCH
+ARG BUILDARCH
 
 # Install dependencies
-ADD https://github.com/jqlang/jq/releases/download/jq-1.7/jq-linux-${TARGETARCH} \
+ADD https://github.com/jqlang/jq/releases/download/jq-1.7/jq-linux-${BUILDARCH} \
     /usr/local/bin/jq
 
 RUN apt-get update && \
@@ -153,3 +154,18 @@ RUN apt-get update && \
     apt-get install -y libevdev2 libsdl2-2.0-0
 
 CMD run_xochitl.sh
+
+# Step 6: User mode emulation rootfs
+FROM --platform=$BUILDPLATFORM rootfs AS make-user-rootfs
+
+ADD ./extract_rootfs.sh /opt
+
+RUN /opt/extract_rootfs.sh /opt/rootfs.ext4 /opt/rootfs/
+
+# Step 7: Qemu user mode armv7 image
+FROM scratch AS qemu-user
+
+COPY --from=make-user-rootfs /opt/rootfs /
+COPY --from=make-user-rootfs /opt/rootfs/etc/skel /home/root
+
+CMD ["bash"]
