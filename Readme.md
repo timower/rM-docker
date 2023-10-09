@@ -8,7 +8,7 @@ Usage
 -----
 
 ```shell
-> docker buildx build -t rm-docker https://github.com/timower/rM-docker.git
+> docker  build --tag rm-docker https://github.com/timower/rM-docker.git
 > xhost + local: # Only if you're on Wayland WM instead of X11.
 > docker run --rm -v rm-data:/opt/root -p 2222:22 -it rm-docker
 # Lots of boot messages...
