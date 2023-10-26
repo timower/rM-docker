@@ -38,7 +38,7 @@ jobs:
         with:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
-          target: qemu-base
+          target: qemu-toltec
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
