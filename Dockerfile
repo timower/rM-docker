@@ -79,12 +79,11 @@ COPY --from=rootfs /opt/rootfs.qcow2 /opt/root
 ADD bin /opt/bin
 ENV PATH=/opt/bin:$PATH
 
-# First boot, disable xochitl, sync time, and save state
+# First boot, disable xochitl and reboot service, and save state
 RUN run_vm.sh -serial null -daemonize && \
     wait_ssh.sh && \
-    ssh root@localhost '(systemctl stop rm-sync && systemctl mask rm-sync) || (systemctl stop sync && systemctl mask sync)' && \
-    ssh root@localhost 'systemctl mask xochitl' && \
-    ssh root@localhost 'while ! timedatectl status | grep "synchronized: yes"; do sleep 1; done' && \
+    ssh root@localhost 'systemctl mask remarkable-fail' && \
+    ssh root@localhost 'systemctl disable xochitl' && \
     save_vm.sh
 
 # Mount to presist rootfs
@@ -103,6 +102,7 @@ FROM qemu-base AS qemu-toltec
 
 RUN run_vm.sh -serial null -daemonize && \
     wait_ssh.sh && \
+    ssh root@localhost 'while ! timedatectl status | grep "synchronized: yes"; do sleep 1; done' && \
     ssh root@localhost 'wget http://toltec-dev.org/bootstrap && bash bootstrap' && \
     save_vm.sh
 
