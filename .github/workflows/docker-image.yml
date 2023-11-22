@@ -37,7 +37,7 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           flavor: |
             latest=auto
-            suffix=${{ matrix.fw_version }},onlatest=true
+            suffix=-${{ matrix.fw_version }},onlatest=true
 
       - name: Build
         uses: docker/build-push-action@v5
