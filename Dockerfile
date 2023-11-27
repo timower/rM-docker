@@ -83,7 +83,7 @@ ENV PATH=/opt/bin:$PATH
 RUN run_vm.sh -serial null -daemonize && \
     wait_ssh.sh && \
     ssh root@localhost 'systemctl mask remarkable-fail' && \
-    ssh root@localhost 'systemctl disable xochitl' && \
+    ssh root@localhost 'systemctl mask xochitl' && \
     save_vm.sh
 
 # Mount to presist rootfs
