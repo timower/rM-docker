@@ -65,7 +65,7 @@ ADD make_rootfs.sh /opt
 RUN ./make_rootfs.sh /opt/rootfs.ext4
 
 # Step3: Qemu!
-FROM debian:bookworm AS qemu-base
+FROM debian:bookworm AS qemu-debug
 
 RUN apt-get update && \
     apt-get install --no-install-recommends -y qemu-system-arm qemu-utils ssh netcat-openbsd
@@ -78,6 +78,8 @@ COPY --from=rootfs /opt/rootfs.qcow2 /opt/root
 
 ADD bin /opt/bin
 ENV PATH=/opt/bin:$PATH
+
+FROM qemu-debug as qemu-base
 
 # First boot, disable xochitl and reboot service, and save state
 RUN run_vm.sh -serial null -daemonize && \

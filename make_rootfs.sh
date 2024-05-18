@@ -33,5 +33,7 @@ upload /tmp/dhcpcd.service /lib/systemd/system/dhcpcd.service
 mount /dev/sda4 /home
 cp-a /etc/skel /home/root
 
+ln-s /dev/null /etc/systemd/system/remarkable-fail.service
+
 GFS
 
