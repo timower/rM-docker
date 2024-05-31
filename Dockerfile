@@ -1,3 +1,4 @@
+#syntax=docker/dockerfile:1.4
 # Global config
 ARG toltec_image=ghcr.io/toltec-dev/base:v3.1
 ARG rm2_stuff_commit=2f6c56ea6e3495ced46449a59e6af6848c73562
@@ -7,31 +8,52 @@ ARG linux_release=5.8.18
 # Step 1: Build Linux for the emulator
 FROM $toltec_image as linux-build
 
-RUN apt-get update && \
-    apt-get install -y bison bc lzop libssl-dev flex
+RUN <<EOT
+    set -ex
+    export DEBIAN_FRONTEND="noninteractive"
+    apt-get update
+    apt-get install -y \
+        bison \
+        bc \
+        lzop \
+        libssl-dev \
+        flex
+    rm -rf /var/lib/apt/lists/*
+EOT
 
 ARG linux_release
 
-RUN curl -o linux.tar.xz https://cdn.kernel.org/pub/linux/kernel/v5.x/linux-$linux_release.tar.xz && \
-    mkdir -p /opt/linux && cd /opt/linux && tar -xf /linux.tar.xz && rm /linux.tar.xz
+RUN <<EOT
+    set -ex
+    curl -o linux.tar.xz https://cdn.kernel.org/pub/linux/kernel/v5.x/linux-$linux_release.tar.xz
+    mkdir -p /opt/linux
+    cd /opt/linux
+    tar -xf /linux.tar.xz
+    rm /linux.tar.xz
+EOT
 
 WORKDIR /opt/linux/linux-$linux_release
 
 # Add a device tree with machine name set to 'reMarkable 2.0'
-RUN cp arch/arm/boot/dts/imx7d-sbc-imx7.dts arch/arm/boot/dts/imx7d-rm.dts && \
-    sed -i 's/CompuLab SBC-iMX7/reMarkable 2.0/' arch/arm/boot/dts/imx7d-rm.dts && \
+RUN <<EOT
+    set -ex
+    cp arch/arm/boot/dts/imx7d-sbc-imx7.dts arch/arm/boot/dts/imx7d-rm.dts
+    sed -i 's/CompuLab SBC-iMX7/reMarkable 2.0/' arch/arm/boot/dts/imx7d-rm.dts
     sed -i 's/imx7d-sbc-imx7.dtb/imx7d-sbc-imx7.dtb imx7d-rm.dtb/' arch/arm/boot/dts/Makefile
+EOT
 
 # Default imx7 config, enable uinput and disable all modules
-RUN make O=imx7 ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- imx_v6_v7_defconfig && \
-    sed -i 's/# CONFIG_INPUT_UINPUT is not set/CONFIG_INPUT_UINPUT=y/' imx7/.config && \
-    sed -i 's/=m/=n/' imx7/.config
-
 # Build, Copy the output files and clean
-RUN make O=imx7 ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- -j $(nproc) && \
-    cp imx7/arch/arm/boot/zImage /opt && \
-    cp imx7/arch/arm/boot/dts/imx7d-rm.dtb /opt && \
+RUN <<EOT
+    set -ex
+    make O=imx7 ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- imx_v6_v7_defconfig
+    sed -i 's/# CONFIG_INPUT_UINPUT is not set/CONFIG_INPUT_UINPUT=y/' imx7/.config
+    sed -i 's/=m/=n/' imx7/.config
+    make O=imx7 ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- -j $(nproc)
+    cp imx7/arch/arm/boot/zImage /opt
+    cp imx7/arch/arm/boot/dts/imx7d-rm.dtb /opt
     rm -rf imx7
+EOT
 
 # Step 2: rootfs
 FROM linuxkit/guestfs:f85d370f7a3b0749063213c2dd451020e3a631ab AS rootfs
@@ -43,32 +65,45 @@ ARG TARGETARCH
 ADD https://github.com/jqlang/jq/releases/download/jq-1.7/jq-linux-${TARGETARCH} \
     /usr/local/bin/jq
 
-RUN apt-get update && \
+RUN <<EOT
+    set -ex
+    export DEBIAN_FRONTEND="noninteractive"
+    apt-get update
     apt-get install -y --no-install-recommends \
-      git \
-      python3 \
-      python3-protobuf && \
-    chmod +x /usr/local/bin/jq && \
-    git clone https://github.com/ddvk/stuff.git /opt/stuff
+        git \
+        python3 \
+        python3-protobuf
+    rm -rf /var/lib/apt/lists/*
+    chmod +x /usr/local/bin/jq
+EOT
 
 ENV PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python
 
 ADD get_update.sh /opt
 ADD updates.json /opt
+ADD make_rootfs.sh /opt
 
 ARG fw_version
-RUN /opt/get_update.sh download $fw_version && \
-    python3 /opt/stuff/extractor/extractor.py /opt/fw.signed /opt/rootfs.ext4
-
 # Make the rootfs image
-ADD make_rootfs.sh /opt
-RUN ./make_rootfs.sh /opt/rootfs.ext4
+RUN <<EOT
+    set -ex
+    git clone https://github.com/ddvk/stuff.git /opt/stuff
+    /opt/get_update.sh download $fw_version
+    python3 /opt/stuff/extractor/extractor.py /opt/fw.signed /opt/rootfs.ext4
+    ./make_rootfs.sh /opt/rootfs.ext4
+    rm -rf /opt/stuff /opt/fw.signed /opt/rootfs.ext4
+EOT
 
 # Step3: Qemu!
 FROM debian:bookworm AS qemu-debug
 
-RUN apt-get update && \
+RUN <<EOT
+    set -ex
+    export DEBIAN_FRONTEND="noninteractive"
+    apt-get update
     apt-get install --no-install-recommends -y qemu-system-arm qemu-utils ssh netcat-openbsd
+    rm -rf /var/lib/apt/lists/*
+EOT
 
 RUN mkdir -p /opt/root
 
@@ -82,11 +117,14 @@ ENV PATH=/opt/bin:$PATH
 FROM qemu-debug as qemu-base
 
 # First boot, disable xochitl and reboot service, and save state
-RUN run_vm.sh -serial null -daemonize && \
-    wait_ssh.sh && \
-    ssh root@localhost 'systemctl mask remarkable-fail' && \
-    ssh root@localhost 'systemctl mask xochitl' && \
+RUN <<EOT
+    set -ex
+    run_vm.sh -serial null -daemonize
+    wait_ssh.sh
+    ssh root@localhost 'systemctl mask remarkable-fail'
+    ssh root@localhost 'systemctl mask xochitl'
     save_vm.sh
+EOT
 
 # Mount to presist rootfs
 VOLUME /opt/root
@@ -103,40 +141,68 @@ CMD run_vm.sh -nographic
 FROM qemu-base AS qemu-toltec
 
 # TODO: remove custom wget patch when toltec bootstrap is updated.
-RUN run_vm.sh -serial null -daemonize && \
-    wait_ssh.sh && \
-    ssh root@localhost 'while ! timedatectl status | grep "synchronized: yes"; do sleep 1; done' && \
-    ssh root@localhost 'wget http://toltec-dev.org/bootstrap  && sed -i "s|wget_remote=http://toltec-dev.org/thirdparty/bin/wget-v1.21.1|wget_remote=http://toltec-dev.org/thirdparty/bin/wget-v1.21.1-1|" bootstrap && sed -i "s|8798fcdabbe560722a02f95b30385926e4452e2c98c15c2c217583eaa0db30fc|c258140f059d16d24503c62c1fdf747ca843fe4ba8fcd464a6e6bda8c3bbb6b5|" bootstrap && bash bootstrap' && \
+RUN <<EOT
+    set -ex
+    run_vm.sh -serial null -daemonize
+    wait_ssh.sh
+    ssh root@localhost 'while ! timedatectl status | grep "synchronized: yes"; do sleep 1; done'
+    ssh root@localhost 'wget http://toltec-dev.org/bootstrap  && sed -i "s|wget_remote=http://toltec-dev.org/thirdparty/bin/wget-v1.21.1|wget_remote=http://toltec-dev.org/thirdparty/bin/wget-v1.21.1-1|" bootstrap && sed -i "s|8798fcdabbe560722a02f95b30385926e4452e2c98c15c2c217583eaa0db30fc|c258140f059d16d24503c62c1fdf747ca843fe4ba8fcd464a6e6bda8c3bbb6b5|" bootstrap && bash bootstrap'
     save_vm.sh
+EOT
 
 # Step 4: Build rm2fb-client and forwarder
 FROM $toltec_image as rm2fb-client
 
-RUN apt-get update && \
+RUN <<EOT
+    set -ex
+    export DEBIAN_FRONTEND="noninteractive"
+    apt-get update
     apt-get install -y git
+    rm -rf /var/lib/apt/lists/*
+EOT
 
 ARG rm2_stuff_commit
-RUN mkdir -p /opt && \
-    git clone https://github.com/timower/rM2-stuff.git /opt/rm2-stuff && \
-    cd /opt/rm2-stuff && git reset --hard $rm2_stuff_commit
+RUN <<EOT
+    set -ex
+    mkdir -p /opt
+    git clone https://github.com/timower/rM2-stuff.git /opt/rm2-stuff
+    cd /opt/rm2-stuff
+    git reset --hard $rm2_stuff_commit
+EOT
 WORKDIR /opt/rm2-stuff
 
-RUN cmake --preset release-toltec && \
+RUN <<EOT
+    set -ex
+    cmake --preset release-toltec
     cmake --build build/release-toltec --target rm2fb_client rm2fb-forward
+EOT
 
 # Step 5: Build rm2fb-emu for the debian host...
 FROM debian:bookworm AS rm2fb-host
 
-RUN apt-get update && \
+RUN <<EOT
+    set -ex
+    export DEBIAN_FRONTEND="noninteractive"
+    apt-get update
     apt-get install -y git clang cmake ninja-build libsdl2-dev libevdev-dev
+    rm -rf /var/lib/apt/lists/*
+EOT
 
 ARG rm2_stuff_commit
-RUN mkdir -p /opt && \
-    git clone https://github.com/timower/rM2-stuff.git /opt/rm2-stuff && \
-    cd /opt/rm2-stuff && git reset --hard $rm2_stuff_commit
+RUN <<EOT
+    set -ex
+    mkdir -p /opt
+    git clone https://github.com/timower/rM2-stuff.git /opt/rm2-stuff
+    cd /opt/rm2-stuff
+    git reset --hard $rm2_stuff_commit
+EOT
 WORKDIR /opt/rm2-stuff
 
-RUN cmake --preset dev-host && cmake --build build/host --target rm2fb-emu
+RUN <<EOT
+    set -ex
+    cmake --preset dev-host
+    cmake --build build/host --target rm2fb-emu
+EOT
 
 # Step 6: Integrate
 FROM qemu-toltec AS qemu-rm2fb
@@ -147,12 +213,20 @@ COPY --from=rm2fb-client /opt/rm2-stuff/build/release-toltec/libs/rm2fb/librm2fb
 COPY --from=rm2fb-client /opt/rm2-stuff/build/release-toltec/tools/rm2fb-forward/rm2fb-forward /opt/rm2fb
 COPY --from=rm2fb-host /opt/rm2-stuff/build/host/tools/rm2fb-emu/rm2fb-emu /opt/bin
 
-RUN run_vm.sh -serial null -daemonize && \
-    wait_ssh.sh && \
-    scp /opt/rm2fb/* root@localhost: && \
+RUN <<EOT
+    set -ex
+    run_vm.sh -serial null -daemonize
+    wait_ssh.sh
+    scp /opt/rm2fb/* root@localhost:
     save_vm.sh
+EOT
 
-RUN apt-get update && \
+RUN <<EOT
+    set -ex
+    export DEBIAN_FRONTEND="noninteractive"
+    apt-get update
     apt-get install -y libevdev2 libsdl2-2.0-0
+    rm -rf /var/lib/apt/lists/*
+EOT
 
 CMD run_xochitl.sh
