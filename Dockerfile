@@ -1,6 +1,6 @@
 # Global config
 ARG toltec_image=ghcr.io/toltec-dev/base:v3.1
-ARG rm2_stuff_commit=2f6c56ea6e3495ced46449a59e6af6848c73562
+ARG rm2_stuff_tag=v0.1.2
 ARG fw_version=3.5.2.1807
 ARG linux_release=5.8.18
 
@@ -82,11 +82,11 @@ ENV PATH=/opt/bin:$PATH
 FROM qemu-debug as qemu-base
 
 # First boot, disable xochitl and reboot service, and save state
-RUN run_vm.sh -serial null -daemonize && \
-    wait_ssh.sh && \
-    ssh root@localhost 'systemctl mask remarkable-fail' && \
-    ssh root@localhost 'systemctl mask xochitl' && \
-    save_vm.sh
+RUN run_vm -serial null -daemonize && \
+    wait_ssh && \
+    in_vm systemctl mask remarkable-fail && \
+    in_vm systemctl mask xochitl && \
+    save_vm
 
 # Mount to presist rootfs
 VOLUME /opt/root
@@ -98,60 +98,48 @@ EXPOSE 5555/tcp
 # For rm2fb
 EXPOSE 8888/tcp
 
-CMD run_vm.sh -nographic
+CMD run_vm -nographic
 
 FROM qemu-base AS qemu-toltec
 
-RUN run_vm.sh -serial null -daemonize && \
-    wait_ssh.sh && \
-    ssh root@localhost 'while ! timedatectl status | grep "synchronized: yes"; do sleep 1; done' && \
-    ssh root@localhost 'wget http://toltec-dev.org/bootstrap && bash bootstrap --force' && \
-    save_vm.sh
+RUN run_vm -serial null -daemonize && \
+    wait_ssh && \
+    in_vm 'while ! timedatectl status | grep "synchronized: yes"; do sleep 1; done' && \
+    in_vm wget https://raw.githubusercontent.com/toltec-dev/toltec/testing/scripts/bootstrap/bootstrap && \
+    in_vm env bash bootstrap --force && \
+    save_vm
 
-# Step 4: Build rm2fb-client and forwarder
-FROM $toltec_image as rm2fb-client
-
-RUN apt-get update && \
-    apt-get install -y git
-
-ARG rm2_stuff_commit
-RUN mkdir -p /opt && \
-    git clone https://github.com/timower/rM2-stuff.git /opt/rm2-stuff && \
-    cd /opt/rm2-stuff && git reset --hard $rm2_stuff_commit
-WORKDIR /opt/rm2-stuff
-
-RUN cmake --preset release-toltec && \
-    cmake --build build/release-toltec --target rm2fb_client rm2fb-forward
-
-# Step 5: Build rm2fb-emu for the debian host...
+# Step 4: Build rm2fb-emu for the debian host...
 FROM debian:bookworm AS rm2fb-host
 
 RUN apt-get update && \
-    apt-get install -y git clang cmake ninja-build libsdl2-dev libevdev-dev
+    apt-get install -y git clang cmake ninja-build libsdl2-dev libevdev-dev libsystemd-dev
 
-ARG rm2_stuff_commit
+RUN apt-get install -y xxd git-lfs
+
+ARG rm2_stuff_tag
 RUN mkdir -p /opt && \
     git clone https://github.com/timower/rM2-stuff.git /opt/rm2-stuff && \
-    cd /opt/rm2-stuff && git reset --hard $rm2_stuff_commit
+    cd /opt/rm2-stuff && git reset --hard $rm2_stuff_tag && git lfs pull
 WORKDIR /opt/rm2-stuff
 
 RUN cmake --preset dev-host && cmake --build build/host --target rm2fb-emu
 
-# Step 6: Integrate
+# Step 5: Integrate
 FROM qemu-toltec AS qemu-rm2fb
 
 RUN mkdir -p /opt/rm2fb
 
-COPY --from=rm2fb-client /opt/rm2-stuff/build/release-toltec/libs/rm2fb/librm2fb_client.so /opt/rm2fb
-COPY --from=rm2fb-client /opt/rm2-stuff/build/release-toltec/tools/rm2fb-forward/rm2fb-forward /opt/rm2fb
 COPY --from=rm2fb-host /opt/rm2-stuff/build/host/tools/rm2fb-emu/rm2fb-emu /opt/bin
 
-RUN run_vm.sh -serial null -daemonize && \
-    wait_ssh.sh && \
-    scp /opt/rm2fb/* root@localhost: && \
-    save_vm.sh
+ARG rm2_stuff_tag
+RUN run_vm -serial null -daemonize && \
+    wait_ssh && \
+    in_vm wget https://github.com/timower/rM2-stuff/releases/download/$rm2_stuff_tag/rm2display.ipk && \
+    in_vm opkg install rm2display.ipk && \
+    save_vm
 
 RUN apt-get update && \
     apt-get install -y libevdev2 libsdl2-2.0-0
 
-CMD run_xochitl.sh
+CMD run_xochitl

@@ -1,0 +1,5 @@
+#!/bin/sh
+
+set -eux
+
+ssh -o StrictHostKeyChecking=no root@localhost /bin/sh -l -c "'$*'"
