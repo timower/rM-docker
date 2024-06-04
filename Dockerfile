@@ -109,28 +109,17 @@ RUN run_vm -serial null -daemonize && \
     in_vm env toltec_branch=testing bash bootstrap --force && \
     save_vm
 
-# Step 4: Build rm2fb-emu for the debian host...
-FROM debian:bookworm AS rm2fb-host
-
-RUN apt-get update && \
-    apt-get install -y git clang cmake ninja-build libsdl2-dev libevdev-dev libsystemd-dev
-
-RUN apt-get install -y xxd git-lfs
-
-ARG rm2_stuff_tag
-RUN mkdir -p /opt && \
-    git clone https://github.com/timower/rM2-stuff.git /opt/rm2-stuff && \
-    cd /opt/rm2-stuff && git reset --hard $rm2_stuff_tag && git lfs pull
-WORKDIR /opt/rm2-stuff
-
-RUN cmake --preset dev-host && cmake --build build/host --target rm2fb-emu
-
 # Step 5: Integrate
 FROM qemu-toltec AS qemu-rm2fb
 
-RUN mkdir -p /opt/rm2fb
+EXPOSE 4444/tcp
+EXPOSE 8000/tcp
 
-COPY --from=rm2fb-host /opt/rm2-stuff/build/host/tools/rm2fb-emu/rm2fb-emu /opt/bin
+ADD www /opt/www
+ADD lighttpd.conf /opt/lighttpd.conf
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends lighttpd
 
 ARG rm2_stuff_tag
 RUN run_vm -serial null -daemonize && \
@@ -138,8 +127,5 @@ RUN run_vm -serial null -daemonize && \
     in_vm wget https://github.com/timower/rM2-stuff/releases/download/$rm2_stuff_tag/rm2display.ipk && \
     in_vm opkg install rm2display.ipk && \
     save_vm
-
-RUN apt-get update && \
-    apt-get install -y libevdev2 libsdl2-2.0-0
 
 CMD run_xochitl

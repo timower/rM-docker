@@ -7,10 +7,9 @@ run_vm -serial null -daemonize
 
 # Make sure it's up
 wait_ssh
+in_vm systemctl start rm2fb
 
-# Connect using the FB emulator
-rm2fb-emu 127.0.0.1 8888 &
+lighttpd -f /opt/lighttpd.conf
 
 # Start xochitl
 in_vm LD_PRELOAD=/opt/lib/librm2fb_client.so /usr/bin/xochitl
-

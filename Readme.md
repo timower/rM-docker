@@ -33,17 +33,14 @@ the image.
 The `qemu-rm2fb` target (which is the default) will include a framebuffer
 emulator from [rm2-stuff](https://github.com/timower/rM2-stuff/tree/dev).
 
-X11 forwarding can be used to view the framebuffer:
+A browser can be used to view and interact with the framebuffer.
 ```shell
-> xhost + local: # Only if you're on Wayland WM instead of X11.
-> docker run --rm -it \
-  --volume /tmp/.X11-unix:/tmp/.X11-unix \
-  --volume $HOME/.Xauthority:/root/.Xauthority \
-  --env DISPLAY \
-  --hostname "$(hostnamectl hostname)" \
+> docker run --rm \
   --publish 2222:22 \
+  --publish 8000:80 \
   rm-docker
 ```
+Now you can open `localhost:8000` to view the rm-emu webpage.
 
 References
 ----------
