@@ -106,7 +106,7 @@ FROM qemu-base AS qemu-toltec
 RUN run_vm.sh -serial null -daemonize && \
     wait_ssh.sh && \
     ssh root@localhost 'while ! timedatectl status | grep "synchronized: yes"; do sleep 1; done' && \
-    ssh root@localhost 'wget http://toltec-dev.org/bootstrap  && sed -i "s|wget_remote=http://toltec-dev.org/thirdparty/bin/wget-v1.21.1|wget_remote=http://toltec-dev.org/thirdparty/bin/wget-v1.21.1-1|" bootstrap && sed -i "s|8798fcdabbe560722a02f95b30385926e4452e2c98c15c2c217583eaa0db30fc|c258140f059d16d24503c62c1fdf747ca843fe4ba8fcd464a6e6bda8c3bbb6b5|" bootstrap && bash bootstrap' && \
+    ssh root@localhost 'wget http://toltec-dev.org/bootstrap  && bash bootstrap' && \
     save_vm.sh
 
 # Step 4: Build rm2fb-client and forwarder
