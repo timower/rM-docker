@@ -102,11 +102,10 @@ CMD run_vm.sh -nographic
 
 FROM qemu-base AS qemu-toltec
 
-# TODO: remove custom wget patch when toltec bootstrap is updated.
 RUN run_vm.sh -serial null -daemonize && \
     wait_ssh.sh && \
     ssh root@localhost 'while ! timedatectl status | grep "synchronized: yes"; do sleep 1; done' && \
-    ssh root@localhost 'wget http://toltec-dev.org/bootstrap && bash bootstrap' && \
+    ssh root@localhost 'wget http://toltec-dev.org/bootstrap && bash bootstrap --force' && \
     save_vm.sh
 
 # Step 4: Build rm2fb-client and forwarder
