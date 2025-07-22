@@ -4,8 +4,12 @@ ARG rm2_stuff_tag=v0.1.2
 ARG fw_version=3.5.2.1807
 ARG linux_release=5.8.18
 
+# By default use a cached linux kernel. To build locally pass:
+#  --build-arg linux_image=linux-build
+ARG linux_image=ghcr.io/timower/rm-docker-linux:linux-image
+
 # Step 1: Build Linux for the emulator
-FROM $toltec_image as linux-build
+FROM $toltec_image as linux-builder
 
 RUN apt-get update && \
     apt-get install -y bison bc lzop libssl-dev flex
@@ -32,6 +36,13 @@ RUN make O=imx7 ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- -j $(nproc) && \
     cp imx7/arch/arm/boot/zImage /opt && \
     cp imx7/arch/arm/boot/dts/imx7d-rm.dtb /opt && \
     rm -rf imx7
+
+# This container just needs to kernel and device tree
+FROM scratch AS linux-build
+COPY --from=linux-builder /opt/zImage /opt/imx7d-rm.dtb /
+
+# Dummy stage to use in the arg below
+FROM $linux_image AS linux-image
 
 # Step 2: rootfs
 FROM linuxkit/guestfs:f85d370f7a3b0749063213c2dd451020e3a631ab AS rootfs
@@ -69,8 +80,8 @@ RUN apt-get update && \
 
 RUN mkdir -p /opt/root
 
-COPY --from=linux-build /opt/zImage /opt
-COPY --from=linux-build /opt/imx7d-rm.dtb /opt
+COPY --from=linux-image /zImage /opt
+COPY --from=linux-image /imx7d-rm.dtb /opt
 COPY --from=rootfs /opt/rootfs.qcow2 /opt/root
 
 ADD bin /opt/bin
