@@ -39,30 +39,27 @@ FROM linuxkit/guestfs:f85d370f7a3b0749063213c2dd451020e3a631ab AS rootfs
 WORKDIR /opt
 ARG TARGETARCH
 
-# Install dependencies
-ADD https://github.com/jqlang/jq/releases/download/jq-1.7/jq-linux-${TARGETARCH} \
-    /usr/local/bin/jq
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
+# Install dependencies
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
       git \
-      python3 \
-      python3-protobuf && \
-    chmod +x /usr/local/bin/jq && \
-    git clone https://github.com/ddvk/stuff.git /opt/stuff
-
-ENV PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python
-
-ADD get_update.sh /opt
-ADD updates.json /opt
+      build-essential \
+      pkg-config \
+      fuse \
+      libfuse-dev \
+      libz-dev && \
+    uv venv --python 3.13
 
 ARG fw_version
-RUN /opt/get_update.sh download $fw_version && \
-    python3 /opt/stuff/extractor/extractor.py /opt/fw.signed /opt/rootfs.ext4
+RUN uv pip install https://github.com/Jayy001/codexctl.git && \
+    .venv/bin/codexctl download $fw_version --hardware rm2 --out /tmp/firmware && \
+    .venv/bin/codexctl extract --out /opt/rootfs.ext4 /tmp/firmware/*
 
 # Make the rootfs image
 ADD make_rootfs.sh /opt
-RUN ./make_rootfs.sh /opt/rootfs.ext4
+RUN ./make_rootfs.sh /opt/rootfs.ext4 $fw_version
 
 # Step3: Qemu!
 FROM debian:bookworm AS qemu-debug
@@ -92,7 +89,7 @@ RUN run_vm -serial null -daemonize && \
 VOLUME /opt/root
 
 # SSH access
-EXPOSE 22/tcp
+EXPOSE 2222/tcp
 # Qemu monitor TCP port
 EXPOSE 5555/tcp
 # For rm2fb

@@ -18,7 +18,16 @@ jobs:
       packages: write
     strategy:
       matrix:
-        fw_version: ['2.15.1', '3.3.2', '3.5.2', '3.8.3', '3.11.2']
+        os:
+          - version: '2.15.1.1189'
+            target: qemu-toltec
+          - version: '3.3.2.1666'
+            target: qemu-toltec
+          - version: '3.8.2.1965'
+            target: qemu-toltec
+          - version: '3.20.0.92'
+            target: qemu-base
+
     steps:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -37,17 +46,17 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           flavor: |
             latest=auto
-            suffix=-${{ matrix.fw_version }},onlatest=true
+            suffix=-${{matrix.os.target}}-${{ matrix.os.version }},onlatest=true
 
       - name: Build
         uses: docker/build-push-action@v5
         with:
           push: ${{ github.event_name != 'pull_request' && github.ref_name == 'main' }}
           tags: ${{ steps.meta.outputs.tags }}
-          target: qemu-toltec
+          target: ${{ matrix.os.target }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
-            fw_version=${{ matrix.fw_version }}
+            fw_version=${{ matrix.os.version }}
 
 
