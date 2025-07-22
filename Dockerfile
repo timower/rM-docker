@@ -3,6 +3,7 @@ ARG toltec_image=ghcr.io/toltec-dev/base:v3.1
 ARG rm2_stuff_tag=v0.1.2
 ARG fw_version=3.5.2.1807
 ARG linux_release=5.8.18
+ARG linux_image=ghcr.io/timower/rm-docker-linux:linux-image
 
 # Step 1: Build Linux for the emulator
 FROM $toltec_image as linux-build
@@ -32,6 +33,9 @@ RUN make O=imx7 ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- -j $(nproc) && \
     cp imx7/arch/arm/boot/zImage /opt && \
     cp imx7/arch/arm/boot/dts/imx7d-rm.dtb /opt && \
     rm -rf imx7
+
+# Dummy stage to use in the arg below
+FROM $linux_image AS linux-image
 
 # Step 2: rootfs
 FROM linuxkit/guestfs:f85d370f7a3b0749063213c2dd451020e3a631ab AS rootfs
@@ -69,8 +73,8 @@ RUN apt-get update && \
 
 RUN mkdir -p /opt/root
 
-COPY --from=linux-build /opt/zImage /opt
-COPY --from=linux-build /opt/imx7d-rm.dtb /opt
+COPY --from=linux-image /opt/zImage /opt
+COPY --from=linux-image /opt/imx7d-rm.dtb /opt
 COPY --from=rootfs /opt/rootfs.qcow2 /opt/root
 
 ADD bin /opt/bin
