@@ -64,7 +64,7 @@ RUN apt-get update && \
     uv venv --python 3.13
 
 ARG fw_version
-RUN uv pip install http://github.com/Jayy001/codexctl.git && \
+RUN uv pip install https://github.com/Jayy001/codexctl.git && \
     .venv/bin/codexctl download $fw_version --hardware rm2 --out /tmp/firmware && \
     .venv/bin/codexctl extract --out /opt/rootfs.ext4 /tmp/firmware/*
 
@@ -114,7 +114,7 @@ RUN run_vm -serial null -daemonize && \
     wait_ssh && \
     in_vm 'while ! timedatectl status | grep "synchronized: yes"; do sleep 1; done' && \
     in_vm wget https://raw.githubusercontent.com/toltec-dev/toltec/testing/scripts/bootstrap/bootstrap && \
-    in_vm 'sed -i "s|wget_remote=.*|wget_remote=https://github.com/Azathothas/Static-Binaries/raw/main/wget/wget_busybox_armv7l_abihf_musl_Linux|" bootstrap' && \
+    in_vm 'sed -i "s|wget_remote=.*|wget_remote=http://github.com/Azathothas/Static-Binaries/raw/main/wget/wget_busybox_armv7l_abihf_musl_Linux|" bootstrap' && \
     in_vm 'sed -i "s/wget_checksum=.*/wget_checksum=ec215780dc74381fd5464d11b1e8efe9736f332acb237706c90720b4baa641ca/" bootstrap' && \
     in_vm env bash bootstrap --force && \
     save_vm
