@@ -64,7 +64,7 @@ RUN apt-get update && \
     uv venv --python 3.13
 
 ARG fw_version
-RUN uv pip install https://github.com/Jayy001/codexctl.git && \
+RUN uv pip install http://github.com/Jayy001/codexctl.git && \
     .venv/bin/codexctl download $fw_version --hardware rm2 --out /tmp/firmware && \
     .venv/bin/codexctl extract --out /opt/rootfs.ext4 /tmp/firmware/*
 
