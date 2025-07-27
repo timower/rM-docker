@@ -7,7 +7,7 @@ FW_VERSION=${2:-""}
 
 # Extract major.minor version for comparison
 get_version_parts() {
-    echo "$1" | cut -d '.' -f 1,2
+  echo "$1" | cut -d '.' -f 1,2
 }
 
 # Check if firmware version is >= 3.12
@@ -54,8 +54,8 @@ GFS
 
 # Handle dhcpcd.service modification for firmware versions < 3.12
 if ! should_skip_dhcpcd; then
-    echo "Modifying dhcpcd.service for firmware version $FW_VERSION"
-    guestfish --rw --add rootfs.qcow2 <<DHCPCD_GFS
+  echo "Modifying dhcpcd.service for firmware version $FW_VERSION"
+  guestfish --rw --add rootfs.qcow2 <<DHCPCD_GFS
 run
 mount /dev/sda2 /
 download /lib/systemd/system/dhcpcd.service /tmp/dhcpcd.service
@@ -63,5 +63,5 @@ download /lib/systemd/system/dhcpcd.service /tmp/dhcpcd.service
 upload /tmp/dhcpcd.service /lib/systemd/system/dhcpcd.service
 DHCPCD_GFS
 else
-    echo "Skipping dhcpcd.service modification for firmware version $FW_VERSION (>= 3.12)"
+  echo "Skipping dhcpcd.service modification for firmware version $FW_VERSION (>= 3.12)"
 fi

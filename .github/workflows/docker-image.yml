@@ -59,7 +59,7 @@ jobs:
           - version: '3.8.2.1965'
             target: qemu-toltec
           - version: '3.20.0.92'
-            target: qemu-base
+            target: qemu-toltec
 
     steps:
       - name: Set up Docker Buildx

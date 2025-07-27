@@ -109,10 +109,15 @@ CMD run_vm -nographic
 
 FROM qemu-base AS qemu-toltec
 
+# Install toltec:
+#  * Firsts make sure the time is synced, so https works correctly.
+#  * Next, make sure home is mounted, as xochitl does it since they introduced encrypted data.
+#  * Finally, download and run the bootstrap script.
 RUN run_vm -serial null -daemonize && \
     wait_ssh && \
     in_vm 'while ! timedatectl status | grep "synchronized: yes"; do sleep 1; done' && \
-    in_vm wget https://raw.githubusercontent.com/toltec-dev/toltec/testing/scripts/bootstrap/bootstrap && \
+    in_vm 'systemctl is-active home.mount || mount /dev/mmcblk2p4 /home' && \
+    in_vm wget https://raw.githubusercontent.com/timower/toltec/refs/heads/feat/wget-update/scripts/bootstrap/bootstrap && \
     in_vm env bash bootstrap --force && \
     save_vm
 
