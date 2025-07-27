@@ -12,7 +12,8 @@ ARG linux_image=ghcr.io/timower/rm-docker-linux:main
 FROM $toltec_image AS linux-builder
 
 RUN apt-get update && \
-    apt-get install -y bison bc lzop libssl-dev flex
+    apt-get install -y --no-install-recommends bison bc lzop libssl-dev flex && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
 ARG linux_release
 
@@ -40,7 +41,7 @@ RUN make O=imx7 ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- -j $(nproc) && \
 FROM scratch AS linux-build
 COPY --from=linux-builder /opt/zImage /opt/imx7d-rm.dtb /
 
-# Dummy stage to use in the arg below
+# Use the linux image from build arg (from first stage or cached)
 FROM $linux_image AS linux-image
 
 # Step 2: rootfs
@@ -60,12 +61,14 @@ RUN apt-get update && \
       fuse \
       libfuse-dev \
       libz-dev && \
+    apt-get clean && rm -rf /var/lib/apt/lists/* && \
     uv venv --python 3.13
 
 ARG fw_version
 RUN uv pip install https://github.com/Jayy001/codexctl.git && \
     .venv/bin/codexctl download $fw_version --hardware rm2 --out /tmp/firmware && \
-    .venv/bin/codexctl extract --out /opt/rootfs.ext4 /tmp/firmware/*
+    .venv/bin/codexctl extract --out /opt/rootfs.ext4 /tmp/firmware/* && \
+    rm -rf /tmp/firmware
 
 # Make the rootfs image
 ADD make_rootfs.sh /opt
@@ -75,7 +78,8 @@ RUN ./make_rootfs.sh /opt/rootfs.ext4 $fw_version
 FROM debian:bookworm AS qemu-debug
 
 RUN apt-get update && \
-    apt-get install --no-install-recommends -y qemu-system-arm qemu-utils ssh netcat-openbsd
+    apt-get install --no-install-recommends -y qemu-system-arm qemu-utils ssh netcat-openbsd && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
 RUN mkdir -p /opt/root
 
@@ -125,9 +129,8 @@ RUN run_vm -serial null -daemonize && \
 FROM debian:bookworm AS rm2fb-host
 
 RUN apt-get update && \
-    apt-get install -y git clang cmake ninja-build libsdl2-dev libevdev-dev libsystemd-dev
-
-RUN apt-get install -y xxd git-lfs
+    apt-get install -y --no-install-recommends git clang cmake ninja-build libsdl2-dev libevdev-dev libsystemd-dev xxd git-lfs && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
 ARG rm2_stuff_tag
 RUN mkdir -p /opt && \
@@ -152,6 +155,7 @@ RUN run_vm -serial null -daemonize && \
     save_vm
 
 RUN apt-get update && \
-    apt-get install -y libevdev2 libsdl2-2.0-0
+    apt-get install -y --no-install-recommends libevdev2 libsdl2-2.0-0 && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
 CMD run_xochitl
