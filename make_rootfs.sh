@@ -15,11 +15,11 @@ should_skip_dhcpcd() {
     if [ -z "$FW_VERSION" ]; then
         return 1  # Don't skip if no version provided
     fi
-    
+
     version_parts=$(get_version_parts "$FW_VERSION")
     major=$(echo "$version_parts" | cut -d '.' -f 1)
     minor=$(echo "$version_parts" | cut -d '.' -f 2)
-    
+
     if [ "$major" -gt 3 ] || ([ "$major" -eq 3 ] && [ "$minor" -ge 12 ]); then
         return 0  # Skip dhcpcd modification
     else
@@ -44,10 +44,6 @@ mkfs ext4 /dev/sda3
 mkfs ext4 /dev/sda4
 
 mount /dev/sda2 /
-
-download /etc/fstab /tmp/fstab
-! sed -i 's/mmcblk2/mmcblk1/' /tmp/fstab
-upload /tmp/fstab /etc/fstab
 
 mount /dev/sda4 /home
 cp-a /etc/skel /home/root

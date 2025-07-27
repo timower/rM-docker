@@ -6,10 +6,10 @@ ARG linux_release=5.8.18
 
 # By default use a cached linux kernel. To build locally pass:
 #  --build-arg linux_image=linux-build
-ARG linux_image=ghcr.io/timower/rm-docker-linux:linux-image
+ARG linux_image=ghcr.io/timower/rm-docker-linux:main
 
 # Step 1: Build Linux for the emulator
-FROM $toltec_image as linux-builder
+FROM $toltec_image AS linux-builder
 
 RUN apt-get update && \
     apt-get install -y bison bc lzop libssl-dev flex
@@ -22,9 +22,8 @@ RUN curl -o linux.tar.xz https://cdn.kernel.org/pub/linux/kernel/v5.x/linux-$lin
 WORKDIR /opt/linux/linux-$linux_release
 
 # Add a device tree with machine name set to 'reMarkable 2.0'
-RUN cp arch/arm/boot/dts/imx7d-sbc-imx7.dts arch/arm/boot/dts/imx7d-rm.dts && \
-    sed -i 's/CompuLab SBC-iMX7/reMarkable 2.0/' arch/arm/boot/dts/imx7d-rm.dts && \
-    sed -i 's/imx7d-sbc-imx7.dtb/imx7d-sbc-imx7.dtb imx7d-rm.dtb/' arch/arm/boot/dts/Makefile
+ADD ./imx7d-rm.dts arch/arm/boot/dts/
+RUN sed -i 's/imx7d-sbc-imx7.dtb/imx7d-sbc-imx7.dtb imx7d-rm.dtb/' arch/arm/boot/dts/Makefile
 
 # Default imx7 config, enable uinput and disable all modules
 RUN make O=imx7 ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- imx_v6_v7_defconfig && \
@@ -87,7 +86,7 @@ COPY --from=rootfs /opt/rootfs.qcow2 /opt/root
 ADD bin /opt/bin
 ENV PATH=/opt/bin:$PATH
 
-FROM qemu-debug as qemu-base
+FROM qemu-debug AS qemu-base
 
 # First boot, disable xochitl and reboot service, and save state
 RUN run_vm -serial null -daemonize && \
