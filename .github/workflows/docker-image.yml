@@ -56,6 +56,8 @@ jobs:
             target: qemu-toltec
           - version: '3.3.2.1666'
             target: qemu-toltec
+          - version: '3.5.2.1807'
+            target: qemu-toltec
           - version: '3.8.2.1965'
             target: qemu-toltec
           - version: '3.20.0.92'
