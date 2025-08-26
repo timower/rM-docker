@@ -159,3 +159,50 @@ RUN apt-get update && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 CMD run_xochitl
+
+FROM nixpkgs/nix-flakes AS nix-kernel
+ADD . /src
+
+RUN nix build '/src#kernel' -o /run/rm-kernel && \
+    nix-collect-garbage
+
+FROM nix-kernel AS nix-rootfs
+
+ARG fw_version
+RUN nix build "/src#\"rootfs-$fw_version\"" -o /run/rm-rootfs && \
+    nix-collect-garbage
+
+FROM nix-rootfs AS nix-emu
+
+ARG fw_version
+RUN nix build "/src#\"rm-emu-$fw_version\"" -o /result && \
+    nix profile install /result && \
+    nix-collect-garbage && \
+    rm -rf /src
+
+CMD run_vm
+
+FROM nix-emu AS nix-start
+
+# First boot, disable xochitl and reboot service, and save state
+RUN run_vm -serial null -daemonize && \
+    wait_ssh && \
+    in_vm systemctl mask remarkable-fail && \
+    in_vm systemctl mask xochitl && \
+    save_vm
+
+FROM nix-start AS nix-toltec
+
+# Install toltec:
+#  * Firsts make sure the time is synced, so https works correctly.
+#  * Next, make sure home is mounted, as xochitl does it since they introduced encrypted data.
+#  * Finally, download and run the bootstrap script.
+RUN run_vm -serial null -daemonize && \
+    wait_ssh && \
+    in_vm 'while ! timedatectl status | grep "synchronized: yes"; do sleep 1; done' && \
+    in_vm 'systemctl is-active home.mount || mount /dev/mmcblk2p4 /home' && \
+    in_vm wget https://raw.githubusercontent.com/timower/toltec/refs/heads/feat/wget-update/scripts/bootstrap/bootstrap && \
+    in_vm env bash bootstrap --force && \
+    save_vm
+
+
