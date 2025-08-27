@@ -3,9 +3,13 @@
   fetchurl,
   runCommand,
 
-  libguestfs-with-appliance,
+  # libguestfs-with-appliance,
+  vmTools,
   qemu,
   cpio,
+  util-linux,
+  dosfstools,
+  e2fsprogs,
 
   versions,
   extractor,
@@ -45,19 +49,64 @@
 
       rootfsImage = if isNewFormat then rootfsImageNew else rootfsImageOld;
 
-    in
-    runCommand "rm-${fw_version}.qcow2"
-      {
-        nativeBuildInputs = [
-          qemu
-          libguestfs-with-appliance
-        ];
+      needsPatchDhcpcd = (builtins.compareVersions fw_version "3.12.0.0") != 1;
 
-        passthru.fw_version = fw_version;
-      }
-      ''
-        ${../make_rootfs.sh} ${rootfsImage} ${fw_version}
-        mv rootfs.qcow2 $out
-      ''
+    in
+    vmTools.runInLinuxVM (
+      runCommand "rm-${fw_version}.qcow2"
+        {
+          passthru.fw_version = fw_version;
+
+          buildInputs = [
+            util-linux
+            dosfstools
+            e2fsprogs
+          ];
+          preVM = ''
+            ${qemu}/bin/qemu-img create -f qcow2 $out 8G
+          '';
+          QEMU_OPTS = "-drive file=\"$out\",if=virtio,cache=unsafe,werror=report,format=qcow2";
+        }
+        ''
+          set -x
+
+          sfdisk /dev/vda <<SFD
+          label: dos
+          label-id: 0xc410b303
+          device: /dev/vda
+          unit: sectors
+          sector-size: 512
+
+          /dev/vda1 : start=        2048, size=       40960, type=83
+          /dev/vda2 : start=       43008, size=      552960, type=83
+          /dev/vda3 : start=      595968, size=      552960, type=83
+          /dev/vda4 : start=     1148928, size=    13793280, type=83
+          SFD
+
+          mkfs.vfat /dev/vda1
+
+          cp ${rootfsImage} /dev/vda2
+          e2fsck -f -y /dev/vda2
+          resize2fs /dev/vda2
+
+          mkfs.ext4 /dev/vda3
+          mkfs.ext4 /dev/vda4
+
+          mkdir -p /mnt/home /mnt/root
+          mount /dev/vda2 /mnt/root
+          mount /dev/vda4 /mnt/home
+
+          cp -a /mnt/root/etc/skel /mnt/home/root
+          umount /mnt/home
+
+          ln -s /dev/null /mnt/root/etc/systemd/system/remarkable-fail.service
+
+          ${lib.optionalString needsPatchDhcpcd "sed -i 's/wlan/eth/' /mnt/root/lib/systemd/system/dhcpcd.service"}
+
+          umount /mnt/root
+
+          set +x
+        ''
+    )
   ) versions;
 }
