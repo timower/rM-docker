@@ -182,7 +182,7 @@ RUN nix build "/src#\"rm-emu-$fw_version\"" -o /result && \
 
 CMD run_vm
 
-FROM nix-emu AS nix-start
+FROM rm-emu:$fw_version AS nix-start
 
 # First boot, disable xochitl and reboot service, and save state
 RUN run_vm -serial null -daemonize && \

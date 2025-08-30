@@ -41,6 +41,25 @@
               inherit kernel rootfs;
             })
           ) allRootFs;
+
+          dockerImages = nixpkgs.lib.mapAttrs' (
+            _: pkg:
+            nixpkgs.lib.nameValuePair "docker-${pkg.version}" (
+              pkgs.dockerTools.streamLayeredImage {
+                name = "rm-emu";
+                tag = "${pkg.version}";
+                contents = [
+                  pkg
+                  pkgs.dockerTools.binSh
+                  pkgs.dockerTools.fakeNss
+                ];
+
+                config = {
+                  Cmd = [ "${pkg}/bin/run_vm" ];
+                };
+              }
+            )
+          ) allEmus;
         in
         {
           inherit kernel extractor;
@@ -48,6 +67,7 @@
         }
         // allEmus
         // allRootFs'
+        // dockerImages
       );
     };
 }

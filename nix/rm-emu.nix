@@ -83,6 +83,7 @@ stdenvNoCC.mkDerivation {
         lib.makeBinPath [
           qemu
           gnugrep
+          coreutils
         ]
       }
 

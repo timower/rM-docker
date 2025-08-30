@@ -10,6 +10,7 @@ ssh_port=${SSH_PORT:-22}
 
 if ! [ -f "$root_path" ] && [ -f "$backing_path" ]; then
   echo "No image found, creating new one"
+  mkdir -p $(dirname $root_path)
   qemu-img create -b "$backing_path" -F qcow2 -f qcow2 "$root_path"
 fi
 
