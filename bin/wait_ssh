@@ -1,6 +1,6 @@
 #!/bin/sh
 echo "Waiting for ssh to come up..."
-while ! ssh -o StrictHostKeyChecking=no root@localhost true
+while ! in_vm true
 do
   sleep 1
 done

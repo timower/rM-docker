@@ -8,17 +8,12 @@ Usage
 -----
 
 ```shell
-> docker  build --tag rm-docker https://github.com/timower/rM-docker.git
-> xhost + local: # Only if you're on Wayland WM instead of X11.
+> docker build --tag rm-docker https://github.com/timower/rM-docker.git
 > docker run --rm -v rm-data:/opt/root -p 2222:22 -it rm-docker
-# Lots of boot messages...
-Codex Linux 3.1.266-2 reMarkable ttymxc0
-
 reMarkable login:
-
 # Now login using the root account, no password
 # Or ssh:
-ssh root@localhost -p 2222
+> ssh root@localhost -p 2222
 ```
 
 Targets
@@ -40,13 +35,14 @@ emulator from [rm2-stuff](https://github.com/timower/rM2-stuff/tree/dev).
 
 X11 forwarding can be used to view the framebuffer:
 ```shell
-docker run --rm -it \
+> xhost + local: # Only if you're on Wayland WM instead of X11.
+> docker run --rm -it \
   --volume /tmp/.X11-unix:/tmp/.X11-unix \
   --volume $HOME/.Xauthority:/root/.Xauthority \
   --env DISPLAY \
   --hostname "$(hostnamectl hostname)" \
   --publish 2222:22 \
-  rm-docker:plain
+  rm-docker
 ```
 
 References
