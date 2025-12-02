@@ -81,6 +81,7 @@ RUN <<EOT
       fuse \
       libfuse-dev \
       libz-dev
+    rm -rf /var/lib/apt/lists/*
     uv venv --python 3.13
 EOT
 
@@ -170,10 +171,11 @@ RUN <<EOT
       ninja-build \
       libsdl2-dev \
       libevdev-dev \
-      libsystemd-dev
+      libsystemd-dev \
+      xxd \
+      git-lfs
+    rm -rf /var/lib/apt/lists/*
 EOT
-
-RUN apt-get install -y xxd git-lfs
 
 ARG rm2_stuff_tag
 RUN <<EOT
